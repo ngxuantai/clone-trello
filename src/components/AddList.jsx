@@ -2,7 +2,7 @@ import {useState} from "react";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faXmark, faPlus} from "@fortawesome/free-solid-svg-icons";
 
-const AddList = (props) => {
+const AddList = ({handleAddList}) => {
   const [list, setlist] = useState("");
   const [show, setShow] = useState(false);
 
@@ -10,7 +10,7 @@ const AddList = (props) => {
     if (!list) {
       return;
     }
-    props.getlist(list);
+    handleAddList(list);
     setlist("");
     setShow(!show);
   };

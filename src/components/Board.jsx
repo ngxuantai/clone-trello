@@ -1,4 +1,4 @@
-import {useContext, useMemo} from "react";
+import {useContext, useMemo, useState, useEffect} from "react";
 import {useParams} from "react-router-dom";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faPen} from "@fortawesome/free-solid-svg-icons";
@@ -7,6 +7,7 @@ import AddCard from "./AddCard";
 import {BoardContext} from "../context/BoardContext";
 import {DragDropContext, Draggable, Droppable} from "react-beautiful-dnd";
 import shortid from "shortid";
+import EditCard from "./EditCard";
 
 const Board = () => {
   const {boardId} = useParams();
@@ -16,7 +17,22 @@ const Board = () => {
     [allboard, boardId]
   );
 
-  const updateBoard = (updatedBoard) => {
+  const [editingCard, setEditingCard] = useState(null);
+  const [listLookup, setListLookup] = useState({});
+
+  useEffect(() => {
+    const lookup = {};
+    bdata.list.forEach((list) => {
+      lookup[list.id] = {...list, items: [...list.items]};
+    });
+    setListLookup(lookup);
+  }, [bdata]);
+
+  const updateBoard = (updatedLookup) => {
+    const updatedBoard = {
+      ...bdata,
+      list: Object.values(updatedLookup),
+    };
     setAllBoard((prevBoards) =>
       prevBoards.map((board) => (board.id === boardId ? updatedBoard : board))
     );
@@ -24,49 +40,70 @@ const Board = () => {
 
   const onDragEnd = (res) => {
     if (!res.destination) {
-      console.log("No Destination");
       return;
     }
-    const newList = [...bdata.list];
-    const s_id = parseInt(res.source.droppableId);
-    const d_id = parseInt(res.destination.droppableId);
-    const [removed] = newList[s_id - 1].items.splice(res.source.index, 1);
-    newList[d_id - 1].items.splice(res.destination.index, 0, removed);
 
-    const updatedBoard = {
-      ...bdata,
-      list: newList,
+    const s_id = res.source.droppableId;
+    const d_id = res.destination.droppableId;
+
+    const sourceList = {
+      ...listLookup[s_id],
+      items: [...listLookup[s_id].items],
+    };
+    const destinationList = {
+      ...listLookup[d_id],
+      items: [...listLookup[d_id].items],
     };
 
-    updateBoard(updatedBoard);
+    const [removed] = sourceList.items.splice(res.source.index, 1);
+    destinationList.items.splice(res.destination.index, 0, removed);
+
+    const updatedLookup = {
+      ...listLookup,
+      [s_id]: sourceList,
+      [d_id]: destinationList,
+    };
+
+    setListLookup(updatedLookup);
+    updateBoard(updatedLookup);
   };
 
-  const cardData = (title, listIndex) => {
+  const handleAddCard = (title, listId) => {
     const newItem = {id: shortid.generate(), title};
-
-    const updatedBoard = {
-      ...bdata,
-      list: bdata.list.map((list, index) =>
-        index === listIndex ? {...list, items: [...list.items, newItem]} : list
-      ),
+    const updatedList = {
+      ...listLookup[listId],
+      items: [...listLookup[listId].items, newItem],
     };
 
-    updateBoard(updatedBoard);
+    const updatedLookup = {...listLookup, [listId]: updatedList};
+    setListLookup(updatedLookup);
+    updateBoard(updatedLookup);
   };
 
-  const listData = (title) => {
+  const handleAddList = (title) => {
     const newList = {
       id: shortid.generate(),
       listTitle: title,
       items: [],
     };
 
+    const updatedLookup = {...listLookup, [newList.id]: newList};
+    setListLookup(updatedLookup);
+    updateBoard(updatedLookup);
+  };
+
+  const handleEditCard = (updatedCard) => {
     const updatedBoard = {
       ...bdata,
-      list: [...bdata.list, newList],
+      list: bdata.list.map((list) => ({
+        ...list,
+        items: list.items.map((item) =>
+          item.id === updatedCard.id ? updatedCard : item
+        ),
+      })),
     };
-
     updateBoard(updatedBoard);
+    setEditingCard(null);
   };
 
   return (
@@ -104,12 +141,13 @@ const Board = () => {
                           }}
                           {...provided.droppableProps}
                         >
-                          {list.items &&
+                          {list.items.length > 0 &&
                             list.items.map((item, itemIndex) => (
                               <Draggable
                                 key={item.id}
                                 draggableId={item.id}
                                 index={itemIndex}
+                                isDragDisabled={editingCard === item.id}
                               >
                                 {(provided) => (
                                   <div
@@ -118,15 +156,30 @@ const Board = () => {
                                     {...provided.dragHandleProps}
                                     className="item flex justify-between items-center bg-white p-1 cursor-pointer rounded-md"
                                   >
-                                    <span className="ml-2">{item.title}</span>
-                                    <span className="flex justify-start items-start">
-                                      <button className="hover:bg-gray-300 w-6 h-6 rounded-full">
-                                        <FontAwesomeIcon
-                                          icon={faPen}
-                                          size="xs"
-                                        />
-                                      </button>
-                                    </span>
+                                    {editingCard === item.id ? (
+                                      <EditCard
+                                        card={item}
+                                        onSave={handleEditCard}
+                                        onClose={() => setEditingCard(null)}
+                                      />
+                                    ) : (
+                                      <>
+                                        <span className="ml-2">
+                                          {item.title}
+                                        </span>
+                                        <button
+                                          onClick={() =>
+                                            setEditingCard(item.id)
+                                          }
+                                          className="hover:bg-gray-300 w-6 h-6 rounded-full"
+                                        >
+                                          <FontAwesomeIcon
+                                            icon={faPen}
+                                            size="xs"
+                                          />
+                                        </button>
+                                      </>
+                                    )}
                                   </div>
                                 )}
                               </Draggable>
@@ -135,13 +188,15 @@ const Board = () => {
                         </div>
                       )}
                     </Droppable>
-                    <AddCard getcard={(title) => cardData(title, index)} />
+                    <AddCard
+                      handleAddCard={(title) => handleAddCard(title, list.id)}
+                    />
                   </div>
                 </div>
               ))}
           </DragDropContext>
 
-          <AddList getlist={(title) => listData(title)} />
+          <AddList handleAddList={(title) => handleAddList(title)} />
         </div>
       </div>
     </div>

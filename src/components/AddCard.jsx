@@ -2,7 +2,7 @@ import {useState} from "react";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faXmark, faPlus} from "@fortawesome/free-solid-svg-icons";
 
-const AddCard = (props) => {
+const AddCard = ({handleAddCard}) => {
   const [card, setCard] = useState("");
   const [show, setShow] = useState(false);
 
@@ -10,7 +10,7 @@ const AddCard = (props) => {
     if (!card) {
       return;
     }
-    props.getcard(card);
+    handleAddCard(card);
     setCard("");
     setShow(!show);
   };
@@ -28,7 +28,7 @@ const AddCard = (props) => {
             <textarea
               value={card}
               onChange={(e) => setCard(e.target.value)}
-              className="p-1 mb-2 w-full rounded-md bg-white leading-5 min-h-[60px]"
+              className="p-1 pl-3 mb-2 w-full rounded-md bg-white leading-5 min-h-[60px]"
               name=""
               id=""
               cols="30"
